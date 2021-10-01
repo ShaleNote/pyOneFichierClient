@@ -1,15 +1,8 @@
-import requests
-from subprocess import call
-from copy import deepcopy
+import aiohttp
 from .exceptions import FichierResponseNotOk, FichierSyntaxError, InsufficientInfoError, NotAuthorized
 from json.decoder import JSONDecodeError
 import re
-import json
-from .objects import FichierFile, FichierFolder
-
-s = requests.Session()
-#~ s.verify = False
-
+from .objects import FichierFolder
 
 class FichierClient(object):
     
@@ -26,30 +19,31 @@ class FichierClient(object):
     def _raise_unauthorized(self):
         raise NotAuthorized('You are using a very limited version of the API, and the feature you are trying to use requires an APIkey.')
             
-    def _APIcall(self, url, json = None, method = 'POST'):
-        if method == 'POST':
-            r = s.post(url, json = json, headers = self.auth)
-        elif method == 'GET':
-            r = s.get(url, headers = self.auth)
-        else:
-            raise FichierSyntaxError(f'Method {method} not available/implemented')
-        if r.ok:
-            try:
-                o = r.json()
-            except JSONDecodeError:
-                raise FichierResponseNotOk(f'1fichier returned malformed json')
-            if 'status' in o:
-                if o['status'] == 'OK':
-                    return r.json()
-                else:
-                    message = r.json()['message']
-                    raise FichierResponseNotOk(f'Response from 1fichier: {message!r}')
+    async def _APIcall(self, url, json = None, method = 'POST'):
+        async with aiohttp.ClientSession() as s:
+            if method == 'POST':
+                r = await s.post(url, json = json, headers = self.auth)
+            elif method == 'GET':
+                r = await s.get(url, headers = self.auth)
             else:
-                #~ No status available, assume response is okay
-                return o
-                
-        else:
-            raise FichierResponseNotOk(f'HTTP Response code from 1fichier: {r.status_code} {r.reason}')
+                raise FichierSyntaxError(f'Method {method} not available/implemented')
+            if r.ok:
+                try:
+                    o = await r.json()
+                except JSONDecodeError:
+                    raise FichierResponseNotOk(f'1fichier returned malformed json')
+                if 'status' in o:
+                    if o['status'] == 'OK':
+                        return await r.json()
+                    else:
+                        message = (await r.json())['message']
+                        raise FichierResponseNotOk(f'Response from 1fichier: {message!r}')
+                else:
+                    #~ No status available, assume response is okay
+                    return o
+                    
+            else:
+                raise FichierResponseNotOk(f'HTTP Response code from 1fichier: {r.status_code} {r.reason}')
             
             
         
@@ -75,8 +69,8 @@ class FichierClient(object):
         
         
     
-    def list_remote_uploads(self, only_data = False):
-        o = self._APIcall('https://api.1fichier.com/v1/remote/ls.cgi')
+    async def list_remote_uploads(self, only_data = False):
+        o = await self._APIcall('https://api.1fichier.com/v1/remote/ls.cgi')
         if o is not None:
             if only_data:
                 return o['data']
@@ -86,12 +80,12 @@ class FichierClient(object):
             return
             
             
-    def remote_upload_info(self, id = None, only_data = False):
+    async def remote_upload_info(self, id = None, only_data = False):
         if not self.authed:
             self._raise_unauthorized()
         if id is None:
             raise InsufficientInfoError('We need an id of an exisiting remote upload via "id" param')
-        o = self._APIcall('https://api.1fichier.com/v1/remote/info.cgi', json = {'id':id})
+        o = await self._APIcall('https://api.1fichier.com/v1/remote/info.cgi', json = {'id':id})
         if o is not None:
             if only_data:
                 return o['result']
@@ -101,7 +95,7 @@ class FichierClient(object):
             return
             
             
-    def remote_upload_create(self, urls = None, headers = None):
+    async def remote_upload_create(self, urls = None, headers = None):
         if not self.authed:
             self._raise_unauthorized()
         if urls is None:
@@ -110,7 +104,7 @@ class FichierClient(object):
         upload_info = {'urls':urls}
         if headers:
             upload_info.update({'headers':headers})
-        o = self._APIcall('https://api.1fichier.com/v1/remote/request.cgi', json = upload_info)
+        o = await self._APIcall('https://api.1fichier.com/v1/remote/request.cgi', json = upload_info)
         if o is not None:
             #~ if only_data:
                 #~ return o['result']
@@ -119,33 +113,33 @@ class FichierClient(object):
         else:
             return
             
-    def _get_folders(self, id = 0):
+    async def _get_folders(self, id = 0):
         if not self.authed:
             self._raise_unauthorized()
         params = {'folder_id':id}
-        o = self._APIcall('https://api.1fichier.com/v1/folder/ls.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/folder/ls.cgi', json = params)
         return o
         
-    def _get_files(self, id = 0):
+    async def _get_files(self, id = 0):
         if not self.authed:
             self._raise_unauthorized()
             
         params = {'folder_id':id}
-        o = self._APIcall('https://api.1fichier.com/v1/file/ls.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/ls.cgi', json = params)
         
         return o
     
-    def get_folder(self, id = 0, only_subfolders = False):
-        o = self._get_folders(id)
+    async def get_folder(self, id = 0, only_subfolders = False):
+        o = await self._get_folders(id)
         
         if not only_subfolders:
-            o.update(self._get_files(id))
+            o.update(await self._get_files(id))
         
         return FichierFolder(self, o)
         
         
             
-    def get_download_link(self, url, inline = False, cdn = False, restrict_ip = False, passw = None, 
+    async def get_download_link(self, url, inline = False, cdn = False, restrict_ip = False, passw = None, 
         no_ssl = False, folder_id = None, filename = None, sharing_user = None):
         if not self.authed:
             self._raise_unauthorized()
@@ -173,34 +167,55 @@ class FichierClient(object):
                     raise FichierSyntaxError('sharing_user not specified but required')
                 params.update({'sharing_user' : sharing_user})
         #~ print(params)
-        o = self._APIcall('https://api.1fichier.com/v1/download/get_token.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/download/get_token.cgi', json = params)
         return o['url']
             
-    def upload_file(self, file_path):
-        o = self._APIcall('https://api.1fichier.com/v1/upload/get_upload_server.cgi', method = 'GET')
+    async def upload_file(self, file_path, filename=None):
+        o = await self._APIcall('https://api.1fichier.com/v1/upload/get_upload_server.cgi', method = 'GET')
         up_srv = o['url']
         id = o['id']
         
-        multiple_files = [('file[]', (file_path, open(file_path, 'rb'), 'application/octet-stream'))]
+        if filename is None:
+            filename = file_path
+        multiple_files = aiohttp.FormData(quote_fields=False)
+        multiple_files.add_field('file[]',
+                    open(file_path, 'rb'),
+                    filename=filename,
+                    content_type='application/octet-stream')
+        part = multiple_files()
+        for p,_,_ in part._parts:
+            hs = {k:p.headers.getall(k) for k in p.headers.keys()}
+            p.headers.clear()
+            cd = hs.pop(aiohttp.hdrs.CONTENT_DISPOSITION)
+            for c in cd:
+                cs = c.split(';')
+                cs = list(filter(lambda x:'filename*=' not in x, cs))
+                c = ';'.join(cs)
+                p.headers.add(aiohttp.hdrs.CONTENT_DISPOSITION, c)
+            for k,vs in hs.items():
+                for v in vs:
+                    p.headers.add(k, v)
         
         up_u = f'https://{up_srv}/upload.cgi?id={id}'
-        if self.authed is True:
-            r = s.post(up_u, files = multiple_files, headers = self.auth_nc, allow_redirects = False)
-        else:
-            r = s.post(up_u, files = multiple_files, allow_redirects = False)
-        if not 'Location' in r.headers:
-            raise FichierResponseNotOk('Missing Locatiion header in response')
-        loc = r.headers['Location']
+        async with aiohttp.ClientSession() as s:
+            if self.authed is True:
+                r = await s.post(up_u, data = part, headers = self.auth_nc, allow_redirects = False)
+            else:
+                r = await s.post(up_u, data = part, allow_redirects = False)
+            if not 'Location' in r.headers:
+                text = await r.text()
+                raise FichierResponseNotOk('Missing Locatiion header in response')
+            loc = r.headers['Location']
+            
+            r = await s.get(f'https://{up_srv}{loc}')
+            
+            x = re.search('<td class="normal"><a href="(.+)"', await r.text())
+            if x:
+                return x.group(1)
+            else:
+                raise FichierResponseNotOk('Missing download link')
         
-        r = s.get(f'https://{up_srv}{loc}')
-        
-        x = re.search('<td class="normal"><a href="(.+)"', r.text)
-        if x:
-            return x.group(1)
-        else:
-            raise FichierResponseNotOk('Missing download link')
-        
-    def get_file_info(self, url, passw = None, folder_id = None, filename = None, sharing_user = None):
+    async def get_file_info(self, url, passw = None, folder_id = None, filename = None, sharing_user = None):
         if not self.authed:
             self._raise_unauthorized()
         params = {
@@ -217,20 +232,20 @@ class FichierClient(object):
                     raise FichierSyntaxError('sharing_user not specified but required')
                 params.update({'sharing_user' : sharing_user})
 
-        o = self._APIcall('https://api.1fichier.com/v1/file/info.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/info.cgi', json = params)
         return o
 
-    def virus_scan(self, url):
+    async def virus_scan(self, url):
         if not self.authed:
             self._raise_unauthorized()
         params = {
             'url' : url
         }
   
-        o = self._APIcall('https://api.1fichier.com/v1/file/scan.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/scan.cgi', json = params)
         return o
 
-    def remove_file(self, urls, codes=None):
+    async def remove_file(self, urls, codes=None):
         if not self.authed:
             self._raise_unauthorized()
         if codes:
@@ -245,10 +260,10 @@ class FichierClient(object):
                 'files': [{'url': i} for i in urls]
             }
 
-        o = self._APIcall('https://api.1fichier.com/v1/file/rm.cgi', json = params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/rm.cgi', json = params)
         return {'status': o['status'], 'removed': o['removed']}
 
-    def move_file(self, urls, destination_folder = None, destination_user = '', rename = ''):
+    async def move_file(self, urls, destination_folder = None, destination_user = '', rename = ''):
      
         if not destination_folder and destination_user:
             raise FichierSyntaxError('If destination_folder unspecified or 0, destination_user must be specified')
@@ -268,10 +283,10 @@ class FichierClient(object):
         if rename:
             params.update({'rename': rename})
    
-        o = self._APIcall('https://api.1fichier.com/v1/file/mv.cgi', json=params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/mv.cgi', json=params)
         return {'status': o['status'], 'moved': o['moved']}
 
-    def copy_file(self, urls, destination_folder = None, destination_user = '', rename = '', passw = ''):
+    async def copy_file(self, urls, destination_folder = None, destination_user = '', rename = '', passw = ''):
      
         if not destination_folder and destination_user:
             raise FichierSyntaxError('If destination_folder unspecified or 0, destination_user must be specified')
@@ -294,5 +309,5 @@ class FichierClient(object):
         if passw:
             params.update({"pass": passw})
    
-        o = self._APIcall('https://api.1fichier.com/v1/file/cp.cgi', json=params)
+        o = await self._APIcall('https://api.1fichier.com/v1/file/cp.cgi', json=params)
         return {'status': o['status'], 'copied': o['copied']}

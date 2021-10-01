@@ -1,6 +1,6 @@
 from distutils.core import setup
 setup(
-  name = 'pyOneFichierClient',         # How you named your package folder (MyLib)
+  name = 'py1fichierClient',         # How you named your package folder (MyLib)
   packages = ['pyOneFichierClient','pyOneFichierClient.setToken','pyOneFichierClient.OneFichierAPI'],   # Chose the same as "name"
   version = '0.9',      # Start with a small number and increase it with every change you make
   license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
@@ -10,7 +10,7 @@ setup(
   url = 'https://github.com/spookyahell/pyOneFichierClient',   # Provide either the link to your github or to your website
   download_url = 'https://codeload.github.com/spookyahell/pyOneFichierClient/tar.gz/master',    # I explain this later on
   keywords = ['1FICHIER','API','CLIENT','FILEHOST'],   # Keywords that define your package best
-  install_requires=['requests'],
+  install_requires=['aiohttp'],
   classifiers=[
     'Development Status :: 3 - Alpha',      # Chose either "3 - Alpha", "4 - Beta" or "5 - Production/Stable" as the current state of your package
     'Intended Audience :: Developers',      # Define that your audience are developers
