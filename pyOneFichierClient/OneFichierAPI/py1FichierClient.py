@@ -43,7 +43,7 @@ class FichierClient(object):
                     return o
                     
             else:
-                raise FichierResponseNotOk(f'HTTP Response code from 1fichier: {r.status_code} {r.reason}')
+                raise FichierResponseNotOk(f'HTTP Response code from 1fichier: {r.status} {r.reason}')
             
             
         
