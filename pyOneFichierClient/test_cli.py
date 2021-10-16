@@ -62,7 +62,7 @@ async def test_download():
 	download_url = await client.get_download_link('https://1fichier.com/?7ci53nacg4cx7hnogdyj', cdn = True, restrict_ip = 2)
 	print(download_url)
 
-def test_listfolders():
+async def test_listfolders():
 	pass
 	
 async def test_download_file_from_dir():
@@ -114,7 +114,7 @@ async def main():
 				print('resolvepath')
 			elif f'action_{c}' in globals():
 				try:
-					globals()[f'action_{c}']()
+					await globals()[f'action_{c}']()
 				except Exception as e:
 					print('Caught', type(e).__name__, f'- {e}')
 			elif c == 'exit':
