@@ -5,6 +5,8 @@
 import sys
 import platform
 from os import environ
+import asyncio
+
 system = platform.system()
 BASE_FNAME = '1F.t'
 if system == 'Windows':
@@ -35,36 +37,36 @@ except KeyboardInterrupt:
 	print()
 	client = FichierClient()
 
-def test_remote_upload_info():
-	remote_uploads = client.list_remote_uploads()
+async def test_remote_upload_info():
+	remote_uploads = await client.list_remote_uploads()
 	#~ Available option: only_data: Boolean (returns only the data part [list] of the response)
 
 	remote_upload_id = remote_uploads['data'][0]['id']
 
-	remote_upload_info = client.remote_upload_info(remote_upload_id)
+	remote_upload_info = await client.remote_upload_info(remote_upload_id)
 	#~ Available option: only_data: Boolean (returns only the data part [result list] of the response)
 
 	print(remote_upload_info)
 
-def test_create_remote_upload():
-	remote_upload = client.remote_upload_create(['http://cdnbakmi.kaltura.com/p/1068292/sp/106829200/raw/entry_id/1_m0dppps6/version/0'], 
+async def test_create_remote_upload():
+	remote_upload = await client.remote_upload_create(['http://cdnbakmi.kaltura.com/p/1068292/sp/106829200/raw/entry_id/1_m0dppps6/version/0'], 
 		headers = {'X-Forwarded-For':'84.183.213.105'})
 
 	print(remote_upload)
 	
-def test_upload():
-	upload = client.upload_file('TESTFILE.dat')
+async def test_upload():
+	upload = await client.upload_file('TESTFILE.dat')
 	print(upload)
 
-def test_download():
-	download_url = client.get_download_link('https://1fichier.com/?7ci53nacg4cx7hnogdyj', cdn = True, restrict_ip = 2)
+async def test_download():
+	download_url = await client.get_download_link('https://1fichier.com/?7ci53nacg4cx7hnogdyj', cdn = True, restrict_ip = 2)
 	print(download_url)
 
 def test_listfolders():
 	pass
 	
-def test_download_file_from_dir():
-	folder = client.get_folder()
+async def test_download_file_from_dir():
+	folder = await client.get_folder()
 	subfolder = folder.subfolders.get_subfolder('Degrassi NC')
 	#~ print(subfolder.subfolders.list())
 	print(subfolder.files[0].get_download_link())
@@ -77,13 +79,11 @@ def test_download_file_from_dir():
 		#~ else:
 			#~ print(f'{name}')
 			
-def test_resolvepath():
-	folder = client.resolve_path('/Fox.com/New Girl')
+async def test_resolvepath():
+	folder = await client.resolve_path('/Fox.com/New Girl')
 	print(folder.data)
 
-
-
-if __name__ == '__main__' or __package__ == 'pyOneFichierAPI':
+async def main():
 	print('1fichier (unofficial) API client - testing module - v0.1')
 	print('This is a testing CLI, not an end-user CLI, any wanted changes are to be done in direct source editing')
 	print('Purpose: Demonstrate the client and show/explain any users how to use it')
@@ -125,3 +125,6 @@ if __name__ == '__main__' or __package__ == 'pyOneFichierAPI':
 		except (KeyboardInterrupt, EOFError):
 			print()
 			break
+
+if __name__ == '__main__' or __package__ == 'pyOneFichierAPI':
+	asyncio.run(main())
