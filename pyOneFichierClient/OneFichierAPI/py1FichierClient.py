@@ -136,6 +136,13 @@ class FichierClient(object):
             o.update(await self._get_files(id))
         
         return FichierFolder(self, o)
+
+    async def remove_folder(self, id):
+        if not self.authed:
+            self._raise_unauthorized()
+        params = {'folder_id':id}
+        o = await self._APIcall('https://api.1fichier.com/v1/folder/rm.cgi', json = params)
+        return o
         
         
             
