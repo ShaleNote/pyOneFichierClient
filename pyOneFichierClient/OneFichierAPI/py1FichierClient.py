@@ -143,8 +143,6 @@ class FichierClient(object):
         params = {'folder_id':id}
         o = await self._APIcall('https://api.1fichier.com/v1/folder/rm.cgi', json = params)
         return o
-        
-        
             
     async def get_download_link(self, url, inline = False, cdn = False, restrict_ip = False, passw = None, 
         no_ssl = False, folder_id = None, filename = None, sharing_user = None):
@@ -292,6 +290,16 @@ class FichierClient(object):
    
         o = await self._APIcall('https://api.1fichier.com/v1/file/mv.cgi', json=params)
         return {'status': o['status'], 'moved': o['moved']}
+
+    async def change_file_attribute(self, urls, info:dict):
+     
+        params = {
+            'urls': urls
+        }
+        params.update(info)
+   
+        o = await self._APIcall('https://api.1fichier.com/v1/file/chattr.cgi', json=params)
+        return o
 
     async def copy_file(self, urls, destination_folder = None, destination_user = '', rename = '', passw = ''):
      
